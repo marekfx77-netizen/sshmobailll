@@ -186,6 +186,24 @@ final class SSHAppSession: ObservableObject {
 
     func exitGuestMode() { isGuestMode = false }
 
+    func resetToFactorySettings() {
+        for session in activeSessions {
+            session.pty.disconnect()
+        }
+        activeSessions.removeAll()
+        selectedSessionId = nil
+        servers.removeAll()
+        groups.removeAll()
+        snippets.removeAll()
+        isGuestMode = false
+        selectedTab = 0
+        errorMessage = nil
+        UserDefaults.standard.removeObject(forKey: serversKey)
+        UserDefaults.standard.removeObject(forKey: groupsKey)
+        UserDefaults.standard.removeObject(forKey: snippetsKey)
+        SSHKeychain.deleteAll()
+    }
+
     // MARK: - Persistence
 
     private func save() {
