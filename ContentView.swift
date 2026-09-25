@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
 // MARK: - Section 1: AppLanguage enum
 enum AppLanguage: String, CaseIterable, Identifiable, Hashable {
@@ -1058,13 +1059,98 @@ enum AppLanguage: String, CaseIterable, Identifiable, Hashable {
 struct ContentView: View {
     @EnvironmentObject var appSession: SSHAppSession
     @AppStorage("appLanguage") private var appLanguage = "system"
+    @AppStorage("biometricLockEnabled") private var biometricLockEnabled = false
+    @State private var isUnlocked = false
     private var lang: AppLanguage { AppLanguage(rawValue: appLanguage) ?? .system }
     
     var body: some View {
-        if appSession.servers.isEmpty && !appSession.isGuestMode {
-            GuestAccessView(lang: lang)
-        } else {
-            MainTabView(lang: lang)
+        Group {
+            if biometricLockEnabled && !isUnlocked {
+                BiometricLockScreen(lang: lang) {
+                    isUnlocked = true
+                }
+            } else if appSession.servers.isEmpty && !appSession.isGuestMode {
+                GuestAccessView(lang: lang)
+            } else {
+                MainTabView(lang: lang)
+            }
+        }
+        .onAppear {
+            if !biometricLockEnabled {
+                isUnlocked = true
+            }
+        }
+    }
+}
+
+// MARK: - Section 2.5: BiometricLockScreen
+struct BiometricLockScreen: View {
+    let lang: AppLanguage
+    let onUnlock: () -> Void
+    @State private var isAuthenticating = false
+    @State private var authError: String?
+
+    var body: some View {
+        VStack(spacing: 24) {
+            Spacer()
+            Image(systemName: "lock.shield.fill")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 80, height: 80)
+                .foregroundColor(.blue)
+            
+            Text("SSH Mobile")
+                .font(.largeTitle)
+                .bold()
+            
+            Text("Aplikacja jest zablokowana.")
+                .font(.body)
+                .foregroundColor(.secondary)
+
+            if let error = authError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundColor(.red)
+                    .padding(.horizontal)
+            }
+            
+            Spacer()
+            
+            Button(action: authenticate) {
+                HStack(spacing: 8) {
+                    Image(systemName: "faceid")
+                    Text("Odblokuj za pomocą \(SSHKeychain.biometryTypeName)")
+                        .bold()
+                }
+                .font(.headline)
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.blue)
+                .cornerRadius(12)
+            }
+            .padding(.horizontal, 30)
+            .padding(.bottom, 50)
+        }
+        .onAppear {
+            authenticate()
+        }
+    }
+
+    private func authenticate() {
+        guard !isAuthenticating else { return }
+        isAuthenticating = true
+        authError = nil
+        Task {
+            let success = await SSHKeychain.authenticateWithBiometrics(reason: "Odblokuj aplikację SSH Mobile")
+            await MainActor.run {
+                isAuthenticating = false
+                if success {
+                    onUnlock()
+                } else {
+                    authError = "Weryfikacja biometryczna nie powiodła się. Spróbuj ponownie."
+                }
+            }
         }
     }
 }
@@ -1851,6 +1937,7 @@ struct SFTPBrowserView: View {
     let lang: AppLanguage
     @StateObject private var sftpManager: SFTPManager
     @State private var showingNewFolder = false
+    @State private var showingFileImporter = false
     @State private var newFolderName = ""
     @State private var selectedItem: SFTPItem?
 
@@ -1913,6 +2000,9 @@ struct SFTPBrowserView: View {
         .navigationTitle(sftpManager.currentPath == "/" ? lang.tabFiles : (sftpManager.currentPath as NSString).lastPathComponent)
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
+                Button(action: { showingFileImporter = true }) {
+                    Image(systemName: "arrow.up.doc")
+                }
                 Button(action: { showingNewFolder = true }) {
                     Image(systemName: "folder.badge.plus")
                 }
@@ -1926,6 +2016,26 @@ struct SFTPBrowserView: View {
                         Image(systemName: "chevron.left")
                     }
                 }
+            }
+        }
+        .fileImporter(
+            isPresented: $showingFileImporter,
+            allowedContentTypes: [.item]
+        ) { result in
+            switch result {
+            case .success(let url):
+                guard url.startAccessingSecurityScopedResource() else { return }
+                defer { url.stopAccessingSecurityScopedResource() }
+                let fileName = url.lastPathComponent
+                if let data = try? Data(contentsOf: url) {
+                    let targetPath = sftpManager.currentPath == "/" ? "/\(fileName)" : "\(sftpManager.currentPath)/\(fileName)"
+                    Task {
+                        try? await sftpManager.writeFile(data: data, atPath: targetPath)
+                        await sftpManager.refresh()
+                    }
+                }
+            case .failure(let error):
+                sftpManager.errorMessage = error.localizedDescription
             }
         }
         .alert(lang.newFolder, isPresented: $showingNewFolder) {
@@ -2088,6 +2198,7 @@ struct SnippetsView: View {
     @EnvironmentObject var appSession: SSHAppSession
     let lang: AppLanguage
     @State private var showingAddSnippet = false
+    @State private var snippetToEdit: SSHSnippet? = nil
     
     var body: some View {
         NavigationStack {
@@ -2098,12 +2209,20 @@ struct SnippetsView: View {
                 } else {
                     ForEach(appSession.snippets) { snippet in
                         SnippetRow(snippet: snippet, lang: lang)
-                            .swipeActions {
+                            .swipeActions(edge: .trailing) {
                                 Button(role: .destructive) {
                                     appSession.deleteSnippet(snippet)
                                 } label: {
                                     Label(lang.delete, systemImage: "trash")
                                 }
+                            }
+                            .swipeActions(edge: .leading) {
+                                Button {
+                                    snippetToEdit = snippet
+                                } label: {
+                                    Label("Edytuj", systemImage: "pencil")
+                                }
+                                .tint(.blue)
                             }
                     }
                 }
@@ -2118,6 +2237,9 @@ struct SnippetsView: View {
             }
             .sheet(isPresented: $showingAddSnippet) {
                 AddEditSnippetView(lang: lang)
+            }
+            .sheet(item: $snippetToEdit) { snippet in
+                AddEditSnippetView(lang: lang, snippetToEdit: snippet)
             }
         }
     }
@@ -2171,6 +2293,7 @@ struct AddEditSnippetView: View {
     @EnvironmentObject var appSession: SSHAppSession
     @Environment(\.dismiss) var dismiss
     let lang: AppLanguage
+    var snippetToEdit: SSHSnippet? = nil
     
     @State private var name = ""
     @State private var command = ""
@@ -2184,18 +2307,35 @@ struct AddEditSnippetView: View {
                     .frame(height: 100)
                 TextField(lang.snippetDescription, text: $description)
             }
-            .navigationTitle(lang.addSnippet)
+            .navigationTitle(snippetToEdit != nil ? "Edytuj snippet" : lang.addSnippet)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button(lang.cancel) { dismiss() }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(lang.save) {
-                        let snippet = SSHSnippet(name: name, command: command, description: description)
-                        appSession.addSnippet(snippet)
+                        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let trimmedCmd = command.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if let existing = snippetToEdit {
+                            var updated = existing
+                            updated.name = trimmedName
+                            updated.command = trimmedCmd
+                            updated.description = description
+                            appSession.updateSnippet(updated)
+                        } else {
+                            let snippet = SSHSnippet(name: trimmedName, command: trimmedCmd, description: description)
+                            appSession.addSnippet(snippet)
+                        }
                         dismiss()
                     }
                     .disabled(name.isEmpty || command.isEmpty)
+                }
+            }
+            .onAppear {
+                if let existing = snippetToEdit {
+                    name = existing.name
+                    command = existing.command
+                    description = existing.description
                 }
             }
         }
@@ -2209,6 +2349,7 @@ struct SettingsView: View {
     @AppStorage("appearanceMode") private var appearanceMode = "system"
     @AppStorage("terminalFontSize") private var terminalFontSize = 12.0
     @AppStorage("terminalColorScheme") private var terminalColorScheme = "standard"
+    @AppStorage("biometricLockEnabled") private var biometricLockEnabled = false
 
     var body: some View {
         NavigationStack {
@@ -2236,6 +2377,9 @@ struct SettingsView: View {
                         Spacer()
                         Text(SSHKeychain.isBiometryAvailable ? "Dostępne" : "Niedostępne")
                             .foregroundColor(.secondary)
+                    }
+                    if SSHKeychain.isBiometryAvailable {
+                        Toggle("Blokada aplikacji (\(SSHKeychain.biometryTypeName))", isOn: $biometricLockEnabled)
                     }
                     NavigationLink(destination: SSHKeysView(lang: lang)) {
                         Label(lang.sshKeys, systemImage: "key.fill")
