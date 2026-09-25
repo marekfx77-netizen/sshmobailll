@@ -409,9 +409,11 @@ fun SFTPScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(300.dp),
-                        colors = androidx.compose.material3.TextFieldDefaults.outlinedTextFieldColors(
-                            textColor = Color.White,
-                            containerColor = Color.Black.copy(alpha = 0.5f)
+                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedContainerColor = Color.Black.copy(alpha = 0.5f),
+                            unfocusedContainerColor = Color.Black.copy(alpha = 0.5f)
                         ),
                         textStyle = androidx.compose.ui.text.TextStyle(
                             fontFamily = FontFamily.Monospace,

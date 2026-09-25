@@ -63,6 +63,7 @@ import com.marekfx77.sshmobile.ui.theme.AccentBlue
 import com.marekfx77.sshmobile.ui.theme.AccentGreen
 import com.marekfx77.sshmobile.ui.theme.AccentRed
 import com.marekfx77.sshmobile.ui.theme.BgDark
+import com.marekfx77.sshmobile.ui.theme.SurfaceDark
 import com.marekfx77.sshmobile.ui.theme.SurfaceBorderDark
 import com.marekfx77.sshmobile.ui.theme.SurfaceCardDark
 import com.marekfx77.sshmobile.viewmodel.SSHViewModel
@@ -295,9 +296,11 @@ fun TerminalScreen(
                                 commandInput = ""
                             }
                         }),
-                        colors = TextFieldDefaults.outlinedTextFieldColors(
-                            textColor = Color.White,
-                            containerColor = Color.Black.copy(alpha = 0.5f),
+                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedContainerColor = Color.Black.copy(alpha = 0.5f),
+                            unfocusedContainerColor = Color.Black.copy(alpha = 0.5f),
                             focusedBorderColor = AccentBlue,
                             unfocusedBorderColor = SurfaceBorderDark
                         ),
