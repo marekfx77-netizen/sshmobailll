@@ -3,6 +3,8 @@ name: Build iOS IPA
 on:
   push:
     branches: [ main, master ]
+    paths-ignore:
+      - 'android/**'
   workflow_dispatch:
 
 jobs:
