@@ -16,88 +16,58 @@ jobs:
 
       - name: Select Xcode Version
         run: |
-          echo "Available Xcode installations:"
-          ls -d /Applications/Xcode* || true
           if [ -d "/Applications/Xcode_16.4.app" ]; then
             sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
           elif [ -d "/Applications/Xcode_16.2.app" ]; then
             sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
-          elif [ -d "/Applications/Xcode_16.1.app" ]; then
-            sudo xcode-select -s /Applications/Xcode_16.1.app/Contents/Developer
           elif [ -d "/Applications/Xcode_16.app" ]; then
             sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer
           fi
           xcodebuild -version
-          xcodebuild -showsdks
 
-      - name: Trust Xcode Plugins and Macros
+      - name: Trust Xcode Macros
         run: |
           defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidatation -bool YES
           defaults write com.apple.dt.Xcode IDESkipMacroFingerprintValidation -bool YES
 
-      - name: Prepare Simulator Daemon
+      - name: Remove duplicate SSHMobile subfolder
         run: |
-          xcrun simctl list > /dev/null 2>&1 || true
-          xcodebuild -downloadPlatform iOS 2>/dev/null || true
+          if [ -d "SSHMobile" ]; then
+            echo "Removing duplicate SSHMobile folder"
+            rm -rf SSHMobile
+          fi
+          ls -la
 
       - name: Install XcodeGen
         run: brew install xcodegen
 
-      - name: Generate Xcode Project
-        run: |
-          if [ -f "ContentView.swift" ] && [ -d "SSHMobile" ]; then
-            echo "Removing duplicate SSHMobile directory to avoid duplicate symbol compilation errors..."
-            rm -rf SSHMobile
-          fi
-          if [ -f "project.yml" ]; then
-            xcodegen generate
-          elif [ -f "SSHMobile/project.yml" ]; then
-            cd SSHMobile && xcodegen generate && cd ..
-          else
-            echo "Searching for project.yml..."
-            PROJECT_DIR=$(find . -name "project.yml" -exec dirname {} \; | head -n 1)
-            cd "$PROJECT_DIR" && xcodegen generate && cd -
-          fi
+      - name: Generate Xcode project
+        run: xcodegen generate
 
-      - name: Inspect Project and Resolve Packages
+      - name: Build Archive
         run: |
-          PROJ_FILE=$(find . -name "*.xcodeproj" | head -n 1)
-          echo "Found project: $PROJ_FILE"
-          xcodebuild -project "$PROJ_FILE" -list
-          xcodebuild -project "$PROJ_FILE" -resolvePackageDependencies -skipPackagePluginValidation -skipMacroValidation
-
-      - name: Build Archive (Unsigned)
-        run: |
-          PROJ_FILE=$(find . -name "*.xcodeproj" | head -n 1)
-          echo "Found project: $PROJ_FILE"
+          PROJ=$(find . -name "*.xcodeproj" | head -n 1)
           xcodebuild archive \
-            -project "$PROJ_FILE" \
+            -project "$PROJ" \
             -scheme SSHMobile \
             -configuration Release \
             -destination "generic/platform=iOS" \
             -archivePath ./build/SSHMobile.xcarchive \
-            -skipPackagePluginValidation \
-            -skipMacroValidation \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             AD_HOC_CODE_SIGNING_ALLOWED=YES
 
-      - name: Package .ipa
+      - name: Package IPA
         run: |
-          mkdir -p Payload
-          APP_DIR=$(find ./build/SSHMobile.xcarchive/Products/Applications/ -name "*.app" 2>/dev/null | head -n 1)
-          if [ -z "$APP_DIR" ]; then
-            APP_DIR=$(find . -name "*.app" -type d | grep -v "DerivedData" | head -n 1)
-          fi
-          echo "Found App: $APP_DIR"
-          cp -r "$APP_DIR" Payload/
-          zip -r SSHMobile-1.0.0-unsigned.ipa Payload
-          echo "Created SSHMobile-1.0.0-unsigned.ipa"
+          APP=$(find ./build/SSHMobile.xcarchive/Products -name "*.app" | head -n 1)
+          mkdir -p ./build/Payload
+          cp -r "$APP" ./build/Payload/SSHMobile.app
+          cd ./build && zip -r SSHMobile-unsigned.ipa Payload/
 
-      - name: Upload IPA Artifact
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: SSHMobile-1.0.0-unsigned-ipa
-          path: SSHMobile-1.0.0-unsigned.ipa
-          retention-days: 14
+          path: ./build/SSHMobile-unsigned.ipa
+          retention-days: 30
