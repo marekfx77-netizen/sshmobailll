@@ -14,19 +14,31 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Select Xcode 16
+      - name: Select Xcode Version
         run: |
-          sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer || sudo xcode-select -s /Applications/Xcode_16.0.app/Contents/Developer || true
+          echo "Available Xcode installations:"
+          ls -d /Applications/Xcode* || true
+          if [ -d "/Applications/Xcode_16.4.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+          elif [ -d "/Applications/Xcode_16.2.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
+          elif [ -d "/Applications/Xcode_16.1.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.1.app/Contents/Developer
+          elif [ -d "/Applications/Xcode_16.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer
+          fi
           xcodebuild -version
+          xcodebuild -showsdks
 
       - name: Trust Xcode Plugins and Macros
         run: |
           defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidatation -bool YES
           defaults write com.apple.dt.Xcode IDESkipMacroFingerprintValidation -bool YES
 
-      - name: Install iOS 18 Platform
+      - name: Prepare Simulator Daemon
         run: |
-          xcodebuild -downloadPlatform iOS -buildVersion 18.0 || xcodebuild -downloadPlatform iOS || true
+          xcrun simctl list > /dev/null 2>&1 || true
+          xcodebuild -downloadPlatform iOS 2>/dev/null || true
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -70,7 +82,10 @@ jobs:
       - name: Package .ipa
         run: |
           mkdir -p Payload
-          APP_DIR=$(find ./build/SSHMobile.xcarchive/Products/Applications/ -name "*.app" | head -n 1)
+          APP_DIR=$(find ./build/SSHMobile.xcarchive/Products/Applications/ -name "*.app" 2>/dev/null | head -n 1)
+          if [ -z "$APP_DIR" ]; then
+            APP_DIR=$(find . -name "*.app" -type d | grep -v "DerivedData" | head -n 1)
+          fi
           echo "Found App: $APP_DIR"
           cp -r "$APP_DIR" Payload/
           zip -r SSHMobile-1.0.0-unsigned.ipa Payload
