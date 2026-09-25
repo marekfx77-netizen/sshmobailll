@@ -2,6 +2,9 @@ import SwiftUI
 import UIKit
 import SwiftTerm
 
+// Disambiguate Color between SwiftUI and SwiftTerm
+typealias Color = SwiftUI.Color
+
 // MARK: - UIKit TerminalView Wrapper
 
 struct SwiftTermView: UIViewRepresentable {
@@ -149,7 +152,7 @@ struct TerminalSpecialKeysToolbar: View {
         let id = UUID()
         let label: String
         let data: [UInt8]
-        let color: Color
+        let color: SwiftUI.Color
     }
     
     private var controlKeys: [SpecialKey] {
@@ -248,7 +251,7 @@ struct TerminalSpecialKeysToolbar: View {
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 6)
-        .background(Color.black.opacity(0.85))
+        .background(SwiftUI.Color.black.opacity(0.85))
     }
     
     @ViewBuilder
@@ -272,7 +275,7 @@ struct TerminalSpecialKeysToolbar: View {
                             .foregroundColor(key.color)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 5)
-                            .background(Color.white.opacity(0.08))
+                            .background(SwiftUI.Color.white.opacity(0.08))
                             .cornerRadius(5)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 5)
@@ -320,7 +323,7 @@ struct InteractiveTerminalView: View {
                 // Connection status pill
                 HStack(spacing: 4) {
                     Circle()
-                        .fill(pty.isConnected ? Color.green : Color.red)
+                        .fill(pty.isConnected ? SwiftUI.Color.green : SwiftUI.Color.red)
                         .frame(width: 6, height: 6)
                     Text(pty.statusMessage)
                         .font(.system(size: 9, weight: .medium, design: .monospaced))
@@ -329,7 +332,7 @@ struct InteractiveTerminalView: View {
                 }
                 .padding(.trailing, 10)
             }
-            .background(Color.black.opacity(0.9))
+            .background(SwiftUI.SwiftUI.Color.black.opacity(0.9))
             
             // Special keys toolbar (collapsible)
             if showingKeys {
@@ -337,6 +340,6 @@ struct InteractiveTerminalView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .background(Color.black)
+        .background(SwiftUI.Color.black)
     }
 }
