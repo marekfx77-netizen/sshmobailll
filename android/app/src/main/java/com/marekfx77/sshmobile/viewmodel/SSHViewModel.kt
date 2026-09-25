@@ -91,9 +91,6 @@ class SSHViewModel(application: Application) : AndroidViewModel(application) {
     private val _terminalFontSize = MutableStateFlow(prefs.terminalFontSize)
     val terminalFontSize: StateFlow<Float> = _terminalFontSize.asStateFlow()
 
-    private val _useBiometrics = MutableStateFlow(prefs.useBiometrics)
-    val useBiometrics: StateFlow<Boolean> = _useBiometrics.asStateFlow()
-
     private val _sshTimeout = MutableStateFlow(prefs.sshTimeoutSeconds)
     val sshTimeout: StateFlow<Int> = _sshTimeout.asStateFlow()
 
@@ -105,7 +102,7 @@ class SSHViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         loadData()
-        if (prefs.useBiometrics || secureStorage.isPinEnabled()) {
+        if (secureStorage.isPinEnabled()) {
             _isLocked.value = true
         }
     }
@@ -136,7 +133,6 @@ class SSHViewModel(application: Application) : AndroidViewModel(application) {
         _appearanceTheme.value = prefs.appearanceTheme
         _terminalColorScheme.value = prefs.terminalColorScheme
         _terminalFontSize.value = prefs.terminalFontSize
-        _useBiometrics.value = prefs.useBiometrics
         _sshTimeout.value = prefs.sshTimeoutSeconds
         _isPinEnabled.value = secureStorage.isPinEnabled()
     }
@@ -432,11 +428,6 @@ class SSHViewModel(application: Application) : AndroidViewModel(application) {
         _terminalFontSize.value = size
     }
 
-    fun setUseBiometrics(use: Boolean) {
-        prefs.useBiometrics = use
-        _useBiometrics.value = use
-    }
-
     fun setSshTimeout(seconds: Int) {
         prefs.sshTimeoutSeconds = seconds
         _sshTimeout.value = seconds
@@ -506,13 +497,12 @@ class SSHViewModel(application: Application) : AndroidViewModel(application) {
                 stage = 4,
                 totalStages = 5,
                 title = "Resetowanie ustawień",
-                detail = "Przywracanie domyślnych kolorów terminala, rozmiaru czcionki i biometrii…",
+                detail = "Przywracanie domyślnych kolorów terminala, rozmiaru czcionki i zabezpieczeń…",
                 progress = 0.90f
             )
             _appearanceTheme.value = AppThemeMode.DARK
             _terminalColorScheme.value = TerminalColorScheme.DRACULA
             _terminalFontSize.value = 13f
-            _useBiometrics.value = false
             _sshTimeout.value = 30
             _isPinEnabled.value = false
             _isLocked.value = false

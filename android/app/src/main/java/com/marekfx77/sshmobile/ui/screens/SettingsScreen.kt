@@ -20,7 +20,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.RestartAlt
@@ -74,7 +73,6 @@ fun SettingsScreen(
 ) {
     val terminalScheme by viewModel.terminalColorScheme.collectAsState()
     val fontSize by viewModel.terminalFontSize.collectAsState()
-    val useBiometrics by viewModel.useBiometrics.collectAsState()
     val isPinEnabled by viewModel.isPinEnabled.collectAsState()
     val privateKeys by viewModel.privateKeyNames.collectAsState()
 
@@ -171,44 +169,6 @@ fun SettingsScreen(
                                 Text(text = "Zmień kod PIN", color = Color.White, fontSize = 15.sp)
                                 Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color(0xFF48484A), modifier = Modifier.size(18.dp))
                             }
-                        }
-
-                        IosDivider()
-
-                        // Biometrics toggle
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(30.dp)
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(Color(0xFF30D158)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(imageVector = Icons.Default.Fingerprint, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
-                                }
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column {
-                                    Text(text = "Biometria (Odcisk / Twarz)", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                                    Text(text = "Szybkie odblokowanie", color = TextSecondaryDark, fontSize = 12.sp)
-                                }
-                            }
-                            Switch(
-                                checked = useBiometrics,
-                                onCheckedChange = { viewModel.setUseBiometrics(it) },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color.White,
-                                    checkedTrackColor = AccentBlue,
-                                    uncheckedThumbColor = Color.White,
-                                    uncheckedTrackColor = Color(0xFF38383A)
-                                )
-                            )
                         }
                     }
                 }

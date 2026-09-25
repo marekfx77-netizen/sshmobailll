@@ -20,9 +20,19 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("release.keystore")
+            storePassword = "sshmobile2026"
+            keyAlias = "sshmobile"
+            keyPassword = "sshmobile2026"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -30,6 +40,7 @@ android {
         }
         debug {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             applicationIdSuffix = ""
         }
     }
@@ -77,8 +88,7 @@ dependencies {
     // SSH & SFTP (Modern JSch with Ed25519 & modern OpenSSH crypto)
     implementation("com.github.mwiede:jsch:0.2.16")
 
-    // Biometric & Security
-    implementation("androidx.biometric:biometric:1.1.0")
+    // Security (EncryptedSharedPreferences / Keystore)
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     // JSON Serialization

@@ -22,7 +22,6 @@ class AppPreferences(context: Context) {
         private const val KEY_THEME = "appearance_theme"
         private const val KEY_TERM_SCHEME = "terminal_color_scheme"
         private const val KEY_TERM_FONT_SIZE = "terminal_font_size"
-        private const val KEY_USE_BIOMETRICS = "use_biometrics"
         private const val KEY_SSH_TIMEOUT = "ssh_timeout"
         private const val KEY_INITIALIZED = "app_initialized_seed"
     }
@@ -121,10 +120,6 @@ class AppPreferences(context: Context) {
     var terminalFontSize: Float
         get() = prefs.getFloat(KEY_TERM_FONT_SIZE, 13f)
         set(value) = prefs.edit().putFloat(KEY_TERM_FONT_SIZE, value).apply()
-
-    var useBiometrics: Boolean
-        get() = prefs.getBoolean(KEY_USE_BIOMETRICS, false)
-        set(value) = prefs.edit().putBoolean(KEY_USE_BIOMETRICS, value).apply()
 
     var sshTimeoutSeconds: Int
         get() = prefs.getInt(KEY_SSH_TIMEOUT, 30)

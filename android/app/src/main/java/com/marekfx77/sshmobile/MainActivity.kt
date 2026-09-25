@@ -3,7 +3,6 @@ package com.marekfx77.sshmobile
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -35,9 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.ComponentActivity
 import com.marekfx77.sshmobile.ui.components.FactoryResetProgressDialog
 import com.marekfx77.sshmobile.ui.screens.LockScreen
 import com.marekfx77.sshmobile.ui.screens.SFTPScreen
@@ -52,7 +49,7 @@ import com.marekfx77.sshmobile.ui.theme.SeparatorDark
 import com.marekfx77.sshmobile.ui.theme.TextSecondaryDark
 import com.marekfx77.sshmobile.viewmodel.SSHViewModel
 
-class MainActivity : FragmentActivity() {
+class MainActivity : ComponentActivity() {
     private val viewModel: SSHViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -71,8 +68,7 @@ class MainActivity : FragmentActivity() {
                 ) {
                     if (isLocked) {
                         LockScreen(
-                            viewModel = viewModel,
-                            onTriggerBiometrics = { triggerBiometrics() }
+                            viewModel = viewModel
                         )
                     } else {
                         MainScreen(viewModel = viewModel)
@@ -85,36 +81,6 @@ class MainActivity : FragmentActivity() {
                 }
             }
         }
-
-        if (viewModel.isLocked.value && viewModel.useBiometrics.value) {
-            triggerBiometrics()
-        }
-    }
-
-    private fun triggerBiometrics() {
-        val executor = ContextCompat.getMainExecutor(this)
-        val biometricPrompt = BiometricPrompt(
-            this,
-            executor,
-            object : BiometricPrompt.AuthenticationCallback() {
-                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                    super.onAuthenticationSucceeded(result)
-                    viewModel.unlockApp()
-                }
-
-                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                    super.onAuthenticationError(errorCode, errString)
-                }
-            }
-        )
-
-        val promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("SSH Mobile")
-            .setSubtitle("Uwierzytelnij się, aby kontynuować")
-            .setNegativeButtonText("Anuluj")
-            .build()
-
-        biometricPrompt.authenticate(promptInfo)
     }
 }
 

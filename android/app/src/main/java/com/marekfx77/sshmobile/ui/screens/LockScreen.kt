@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backspace
-import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -59,13 +58,10 @@ import kotlin.math.roundToInt
 @Composable
 fun LockScreen(
     viewModel: SSHViewModel,
-    onTriggerBiometrics: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val view = LocalView.current
     val scope = rememberCoroutineScope()
-    val isPinEnabled by viewModel.isPinEnabled.collectAsState()
-    val useBiometrics by viewModel.useBiometrics.collectAsState()
 
     var enteredPin by remember { mutableStateOf("") }
     var isError by remember { mutableStateOf(false) }
@@ -124,214 +120,137 @@ fun LockScreen(
             .background(Color.Black),
         contentAlignment = Alignment.Center
     ) {
-        if (!isPinEnabled) {
-            // Only biometrics enabled
+        // iOS Style PIN Keypad
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(vertical = 48.dp, horizontal = 24.dp)
+        ) {
+            // Top Header + Dots
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.padding(32.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset { IntOffset(shakeOffset.value.roundToInt(), 0) }
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(76.dp)
-                        .background(AccentBlue.copy(alpha = 0.15f), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Lock,
-                        contentDescription = null,
-                        tint = AccentBlue,
-                        modifier = Modifier.size(38.dp)
-                    )
-                }
-
-                Text(
-                    text = "SSH Mobile",
-                    color = Color.White,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Text(
-                    text = "Aplikacja jest zabezpieczona biometrią.\nUwierzytelnij się, aby kontynuować.",
-                    color = Color(0xFF8E8E93),
-                    fontSize = 14.sp,
-                    textAlign = TextAlign.Center
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(32.dp)
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Button(
-                    onClick = onTriggerBiometrics,
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentBlue),
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                Text(
+                    text = if (isError) "Nieprawidłowy kod PIN" else "Wprowadź kod PIN",
+                    color = if (isError) AccentRed else Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = "SSH Mobile",
+                    color = Color(0xFF8E8E93),
+                    fontSize = 13.sp
+                )
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // 4 iOS PIN Dots
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(20.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(imageVector = Icons.Default.Fingerprint, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "Odblokuj biometrią", fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                TextButton(onClick = { showResetDialog = true }) {
-                    Text(
-                        text = "Nie pamiętam danych / Reset fabryczny",
-                        color = AccentRed.copy(alpha = 0.9f),
-                        fontSize = 13.sp
-                    )
+                    for (i in 0 until 4) {
+                        val isFilled = i < enteredPin.length
+                        Box(
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    when {
+                                        isError -> AccentRed
+                                        isFilled -> Color.White
+                                        else -> Color.Transparent
+                                    }
+                                )
+                                .border(
+                                    width = 1.5.dp,
+                                    color = when {
+                                        isError -> AccentRed
+                                        isFilled -> Color.White
+                                        else -> Color(0xFF48484A)
+                                    },
+                                    shape = CircleShape
+                                )
+                        )
+                    }
                 }
             }
-        } else {
-            // iOS Style PIN Keypad
+
+            // Center iOS Keypad (1 to 9, 0, Backspace)
             Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(vertical = 48.dp, horizontal = 24.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Top Header + Dots
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .offset { IntOffset(shakeOffset.value.roundToInt(), 0) }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Lock,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(32.dp)
-                    )
+                // Row 1
+                Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                    IosKeyButton(digit = "1", letters = "", onClick = { onDigitPress("1") })
+                    IosKeyButton(digit = "2", letters = "A B C", onClick = { onDigitPress("2") })
+                    IosKeyButton(digit = "3", letters = "D E F", onClick = { onDigitPress("3") })
+                }
+                // Row 2
+                Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                    IosKeyButton(digit = "4", letters = "G H I", onClick = { onDigitPress("4") })
+                    IosKeyButton(digit = "5", letters = "J K L", onClick = { onDigitPress("5") })
+                    IosKeyButton(digit = "6", letters = "M N O", onClick = { onDigitPress("6") })
+                }
+                // Row 3
+                Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                    IosKeyButton(digit = "7", letters = "P Q R S", onClick = { onDigitPress("7") })
+                    IosKeyButton(digit = "8", letters = "T U V", onClick = { onDigitPress("8") })
+                    IosKeyButton(digit = "9", letters = "W X Y Z", onClick = { onDigitPress("9") })
+                }
+                // Row 4 (Empty, 0, Delete)
+                Row(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Spacer(modifier = Modifier.size(76.dp))
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    IosKeyButton(digit = "0", letters = "", onClick = { onDigitPress("0") })
 
-                    Text(
-                        text = if (isError) "Nieprawidłowy kod PIN" else "Wprowadź kod PIN",
-                        color = if (isError) AccentRed else Color.White,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Text(
-                        text = "SSH Mobile",
-                        color = Color(0xFF8E8E93),
-                        fontSize = 13.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(32.dp))
-
-                    // 4 iOS PIN Dots
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(20.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        for (i in 0 until 4) {
-                            val isFilled = i < enteredPin.length
-                            Box(
-                                modifier = Modifier
-                                    .size(16.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        when {
-                                            isError -> AccentRed
-                                            isFilled -> Color.White
-                                            else -> Color.Transparent
-                                        }
-                                    )
-                                    .border(
-                                        width = 1.5.dp,
-                                        color = when {
-                                            isError -> AccentRed
-                                            isFilled -> Color.White
-                                            else -> Color(0xFF48484A)
-                                        },
-                                        shape = CircleShape
-                                    )
+                    if (enteredPin.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .size(76.dp)
+                                .clip(CircleShape)
+                                .clickable { onDeletePress() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Backspace,
+                                contentDescription = "Usuń",
+                                tint = Color.White,
+                                modifier = Modifier.size(26.dp)
                             )
                         }
+                    } else {
+                        Spacer(modifier = Modifier.size(76.dp))
                     }
                 }
+            }
 
-                // Center iOS Keypad (1 to 9, 0, Biometrics, Backspace)
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    // Row 1
-                    Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                        IosKeyButton(digit = "1", letters = "", onClick = { onDigitPress("1") })
-                        IosKeyButton(digit = "2", letters = "A B C", onClick = { onDigitPress("2") })
-                        IosKeyButton(digit = "3", letters = "D E F", onClick = { onDigitPress("3") })
-                    }
-                    // Row 2
-                    Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                        IosKeyButton(digit = "4", letters = "G H I", onClick = { onDigitPress("4") })
-                        IosKeyButton(digit = "5", letters = "J K L", onClick = { onDigitPress("5") })
-                        IosKeyButton(digit = "6", letters = "M N O", onClick = { onDigitPress("6") })
-                    }
-                    // Row 3
-                    Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                        IosKeyButton(digit = "7", letters = "P Q R S", onClick = { onDigitPress("7") })
-                        IosKeyButton(digit = "8", letters = "T U V", onClick = { onDigitPress("8") })
-                        IosKeyButton(digit = "9", letters = "W X Y Z", onClick = { onDigitPress("9") })
-                    }
-                    // Row 4 (Biometrics / Empty, 0, Delete)
-                    Row(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalAlignment = Alignment.CenterVertically) {
-                        if (useBiometrics) {
-                            Box(
-                                modifier = Modifier
-                                    .size(76.dp)
-                                    .clip(CircleShape)
-                                    .clickable { onTriggerBiometrics() },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Fingerprint,
-                                    contentDescription = "Biometria",
-                                    tint = AccentBlue,
-                                    modifier = Modifier.size(34.dp)
-                                )
-                            }
-                        } else {
-                            Spacer(modifier = Modifier.size(76.dp))
-                        }
-
-                        IosKeyButton(digit = "0", letters = "", onClick = { onDigitPress("0") })
-
-                        if (enteredPin.isNotEmpty()) {
-                            Box(
-                                modifier = Modifier
-                                    .size(76.dp)
-                                    .clip(CircleShape)
-                                    .clickable { onDeletePress() },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Backspace,
-                                    contentDescription = "Usuń",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(26.dp)
-                                )
-                            }
-                        } else {
-                            Spacer(modifier = Modifier.size(76.dp))
-                        }
-                    }
-                }
-
-                // Bottom Emergency Reset Button
-                TextButton(onClick = { showResetDialog = true }) {
-                    Text(
-                        text = "Nie pamiętasz PIN-u? Zresetuj aplikację",
-                        color = Color(0xFF8E8E93),
-                        fontSize = 13.sp,
-                        textAlign = TextAlign.Center
-                    )
-                }
+            // Bottom Emergency Reset Button
+            TextButton(onClick = { showResetDialog = true }) {
+                Text(
+                    text = "Nie pamiętasz PIN-u? Zresetuj aplikację",
+                    color = Color(0xFF8E8E93),
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }
