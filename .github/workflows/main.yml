@@ -45,6 +45,10 @@ jobs:
 
       - name: Generate Xcode Project
         run: |
+          if [ -f "ContentView.swift" ] && [ -d "SSHMobile" ]; then
+            echo "Removing duplicate SSHMobile directory to avoid duplicate symbol compilation errors..."
+            rm -rf SSHMobile
+          fi
           if [ -f "project.yml" ]; then
             xcodegen generate
           elif [ -f "SSHMobile/project.yml" ]; then
