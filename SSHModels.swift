@@ -125,10 +125,17 @@ struct TerminalLine: Identifiable {
 
 // MARK: - Active Session
 
-struct SSHActiveSession: Identifiable {
+@MainActor
+final class SSHActiveSession: Identifiable, ObservableObject {
     let id: UUID = UUID()
     let server: SSHServer
+    let pty: SSHTerminalPTY
     var title: String { server.name }
+
+    init(server: SSHServer) {
+        self.server = server
+        self.pty = SSHTerminalPTY(server: server)
+    }
 }
 
 // MARK: - Theme
