@@ -332,7 +332,7 @@ struct InteractiveTerminalView: View {
                 }
                 .padding(.trailing, 10)
             }
-            .background(SwiftUI.SwiftUI.Color.black.opacity(0.9))
+            .background(SwiftUI.Color.black.opacity(0.9))
             
             // Special keys toolbar (collapsible)
             if showingKeys {
