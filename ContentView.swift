@@ -1085,10 +1085,13 @@ struct ContentView: View {
 
 // MARK: - Section 2.5: BiometricLockScreen
 struct BiometricLockScreen: View {
+    @EnvironmentObject var appSession: SSHAppSession
     let lang: AppLanguage
     let onUnlock: () -> Void
+    @AppStorage("biometricLockEnabled") private var biometricLockEnabled = false
     @State private var isAuthenticating = false
     @State private var authError: String?
+    @State private var showingResetAlert = false
 
     var body: some View {
         VStack(spacing: 24) {
@@ -1116,24 +1119,42 @@ struct BiometricLockScreen: View {
             
             Spacer()
             
-            Button(action: authenticate) {
-                HStack(spacing: 8) {
-                    Image(systemName: "faceid")
-                    Text("Odblokuj za pomocą \(SSHKeychain.biometryTypeName)")
-                        .bold()
+            VStack(spacing: 16) {
+                Button(action: authenticate) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "faceid")
+                        Text("Odblokuj za pomocą \(SSHKeychain.biometryTypeName)")
+                            .bold()
+                    }
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue)
+                    .cornerRadius(12)
                 }
-                .font(.headline)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.blue)
-                .cornerRadius(12)
+
+                Button(action: { showingResetAlert = true }) {
+                    Text("Nie pamiętasz danych / Zresetuj aplikację")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
             }
             .padding(.horizontal, 30)
-            .padding(.bottom, 50)
+            .padding(.bottom, 40)
         }
         .onAppear {
             authenticate()
+        }
+        .alert("Zresetować aplikację do ustawień fabrycznych?", isPresented: $showingResetAlert) {
+            Button("Anuluj", role: .cancel) { }
+            Button("Resetuj wszystko", role: .destructive) {
+                appSession.resetToFactorySettings()
+                biometricLockEnabled = false
+                onUnlock()
+            }
+        } message: {
+            Text("Ta operacja usunie wszystkie zapisane serwery, hasła z Keychaina, klucze SSH, grupy i snippety oraz wyłączy blokadę biometryczną. Aplikacja powróci do czystego stanu początkowego.")
         }
     }
 
