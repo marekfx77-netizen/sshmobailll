@@ -9,6 +9,7 @@ final class SSHAppSession: ObservableObject {
     @Published var snippets: [SSHSnippet] = []
     @Published var activeSessions: [SSHActiveSession] = []
     @Published var selectedSessionId: UUID?
+    @Published var selectedTab: Int = 0
     @Published var errorMessage: String?
     @Published var isGuestMode: Bool = false
     @Published var isWorking: Bool = false
@@ -53,6 +54,9 @@ final class SSHAppSession: ObservableObject {
     }
 
     func deleteServer(_ server: SSHServer) {
+        if let s = activeSessions.first(where: { $0.server.id == server.id }) {
+            s.pty.disconnect()
+        }
         servers.removeAll { $0.id == server.id }
         SSHKeychain.deletePassword(for: server.id)
         activeSessions.removeAll { $0.server.id == server.id }
@@ -127,14 +131,32 @@ final class SSHAppSession: ObservableObject {
     func openSession(for server: SSHServer) {
         if let existing = activeSessions.first(where: { $0.server.id == server.id }) {
             selectedSessionId = existing.id
+            if !existing.pty.isConnected && !existing.pty.isConnecting {
+                startSessionConnection(existing)
+            }
             return
         }
         let session = SSHActiveSession(server: server)
         activeSessions.append(session)
         selectedSessionId = session.id
+        startSessionConnection(session)
+    }
+
+    func startSessionConnection(_ session: SSHActiveSession) {
+        if session.server.authMethod == .privateKey {
+            let key = SSHKeychain.allPrivateKeyNames().first ?? "default"
+            Task {
+                await session.pty.connectWithKey(keyName: key)
+            }
+        } else if let pwd = SSHKeychain.loadPassword(for: session.server.id) {
+            Task {
+                await session.pty.connect(password: pwd)
+            }
+        }
     }
 
     func closeSession(_ session: SSHActiveSession) {
+        session.pty.disconnect()
         activeSessions.removeAll { $0.id == session.id }
         if selectedSessionId == session.id {
             selectedSessionId = activeSessions.last?.id
