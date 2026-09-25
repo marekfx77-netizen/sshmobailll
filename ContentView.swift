@@ -1094,54 +1094,64 @@ struct BiometricLockScreen: View {
     @State private var showingResetAlert = false
 
     var body: some View {
-        VStack(spacing: 24) {
-            Spacer()
-            Image(systemName: "lock.shield.fill")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 80, height: 80)
-                .foregroundColor(.blue)
-            
-            Text("SSH Mobile")
-                .font(.largeTitle)
-                .bold()
-            
-            Text("Aplikacja jest zablokowana.")
-                .font(.body)
-                .foregroundColor(.secondary)
+        ZStack {
+            VStack(spacing: 24) {
+                Spacer()
+                Image(systemName: "lock.shield.fill")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 80, height: 80)
+                    .foregroundColor(.blue)
+                
+                Text("SSH Mobile")
+                    .font(.largeTitle)
+                    .bold()
+                
+                Text("Aplikacja jest zablokowana.")
+                    .font(.body)
+                    .foregroundColor(.secondary)
 
-            if let error = authError {
-                Text(error)
-                    .font(.caption)
-                    .foregroundColor(.red)
-                    .padding(.horizontal)
-            }
-            
-            Spacer()
-            
-            VStack(spacing: 16) {
-                Button(action: authenticate) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "faceid")
-                        Text("Odblokuj za pomocą \(SSHKeychain.biometryTypeName)")
-                            .bold()
+                if let error = authError {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .padding(.horizontal)
+                }
+                
+                Spacer()
+                
+                VStack(spacing: 16) {
+                    Button(action: authenticate) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "faceid")
+                            Text("Odblokuj za pomocą \(SSHKeychain.biometryTypeName)")
+                                .bold()
+                        }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.blue)
+                        .cornerRadius(12)
                     }
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.blue)
-                    .cornerRadius(12)
-                }
 
-                Button(action: { showingResetAlert = true }) {
-                    Text("Nie pamiętasz danych / Zresetuj aplikację")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                    Button(action: { showingResetAlert = true }) {
+                        Text("Nie pamiętasz danych / Zresetuj aplikację")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
                 }
+                .padding(.horizontal, 30)
+                .padding(.bottom, 40)
             }
-            .padding(.horizontal, 30)
-            .padding(.bottom, 40)
+            .disabled(appSession.isResetting)
+
+            if appSession.isResetting {
+                Color.black.opacity(0.6)
+                    .ignoresSafeArea()
+                DataResetProgressView(appSession: appSession)
+                    .transition(.scale.combined(with: .opacity))
+            }
         }
         .onAppear {
             authenticate()
@@ -1149,9 +1159,11 @@ struct BiometricLockScreen: View {
         .alert("Zresetować aplikację do ustawień fabrycznych?", isPresented: $showingResetAlert) {
             Button("Anuluj", role: .cancel) { }
             Button("Resetuj wszystko", role: .destructive) {
-                appSession.resetToFactorySettings()
-                biometricLockEnabled = false
-                onUnlock()
+                Task {
+                    await appSession.performFactoryReset()
+                    biometricLockEnabled = false
+                    onUnlock()
+                }
             }
         } message: {
             Text("Ta operacja usunie wszystkie zapisane serwery, hasła z Keychaina, klucze SSH, grupy i snippety oraz wyłączy blokadę biometryczną. Aplikacja powróci do czystego stanu początkowego.")
@@ -1159,7 +1171,7 @@ struct BiometricLockScreen: View {
     }
 
     private func authenticate() {
-        guard !isAuthenticating else { return }
+        guard !isAuthenticating, !appSession.isResetting else { return }
         isAuthenticating = true
         authError = nil
         Task {
@@ -1173,6 +1185,51 @@ struct BiometricLockScreen: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Section 2.6: DataResetProgressView
+struct DataResetProgressView: View {
+    @ObservedObject var appSession: SSHAppSession
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 56, height: 56)
+                .foregroundColor(.red)
+
+            Text("Czyszczenie danych")
+                .font(.headline)
+                .bold()
+
+            VStack(spacing: 10) {
+                ProgressView(value: appSession.resetProgress, total: 1.0)
+                    .progressViewStyle(LinearProgressViewStyle(tint: .red))
+                    .frame(height: 8)
+                    .cornerRadius(4)
+
+                HStack {
+                    Text(appSession.resetStatusText)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                    Spacer()
+                    Text("\(Int(appSession.resetProgress * 100))%")
+                        .font(.caption)
+                        .bold()
+                        .foregroundColor(.secondary)
+                }
+            }
+            .frame(width: 260)
+        }
+        .padding(28)
+        .background(Color(UIColor.secondarySystemBackground))
+        .cornerRadius(20)
+        .shadow(color: Color.black.opacity(0.25), radius: 25)
+        .padding(24)
     }
 }
 
@@ -2365,66 +2422,95 @@ struct AddEditSnippetView: View {
 
 // MARK: - Section 21: SettingsView
 struct SettingsView: View {
+    @EnvironmentObject var appSession: SSHAppSession
     let lang: AppLanguage
     @AppStorage("appLanguage") private var appLanguage = "system"
     @AppStorage("appearanceMode") private var appearanceMode = "system"
     @AppStorage("terminalFontSize") private var terminalFontSize = 12.0
     @AppStorage("terminalColorScheme") private var terminalColorScheme = "standard"
     @AppStorage("biometricLockEnabled") private var biometricLockEnabled = false
+    @State private var showingResetAlert = false
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section(header: Text(lang.appearance)) {
-                    Picker(lang.appTheme, selection: $appearanceMode) {
-                        Text("System").tag("system")
-                        Text("Light").tag("light")
-                        Text("Dark").tag("dark")
-                    }
-                    Picker(lang.terminalTheme, selection: $terminalColorScheme) {
-                        ForEach(TerminalColorScheme.allCases) { scheme in
-                            Text(scheme.displayName).tag(scheme.rawValue)
+        ZStack {
+            NavigationStack {
+                Form {
+                    Section(header: Text(lang.appearance)) {
+                        Picker(lang.appTheme, selection: $appearanceMode) {
+                            Text("System").tag("system")
+                            Text("Light").tag("light")
+                            Text("Dark").tag("dark")
+                        }
+                        Picker(lang.terminalTheme, selection: $terminalColorScheme) {
+                            ForEach(TerminalColorScheme.allCases) { scheme in
+                                Text(scheme.displayName).tag(scheme.rawValue)
+                            }
+                        }
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("\(lang.fontSize): \(Int(terminalFontSize)) pt")
+                            Slider(value: $terminalFontSize, in: 9...24, step: 1)
                         }
                     }
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("\(lang.fontSize): \(Int(terminalFontSize)) pt")
-                        Slider(value: $terminalFontSize, in: 9...24, step: 1)
+                    
+                    Section(header: Text(lang.security)) {
+                        HStack {
+                            Label(SSHKeychain.biometryTypeName, systemImage: "faceid")
+                            Spacer()
+                            Text(SSHKeychain.isBiometryAvailable ? "Dostępne" : "Niedostępne")
+                                .foregroundColor(.secondary)
+                        }
+                        if SSHKeychain.isBiometryAvailable {
+                            Toggle("Blokada aplikacji (\(SSHKeychain.biometryTypeName))", isOn: $biometricLockEnabled)
+                        }
+                        NavigationLink(destination: SSHKeysView(lang: lang)) {
+                            Label(lang.sshKeys, systemImage: "key.fill")
+                        }
                     }
-                }
-                
-                Section(header: Text(lang.security)) {
-                    HStack {
-                        Label(SSHKeychain.biometryTypeName, systemImage: "faceid")
-                        Spacer()
-                        Text(SSHKeychain.isBiometryAvailable ? "Dostępne" : "Niedostępne")
-                            .foregroundColor(.secondary)
-                    }
-                    if SSHKeychain.isBiometryAvailable {
-                        Toggle("Blokada aplikacji (\(SSHKeychain.biometryTypeName))", isOn: $biometricLockEnabled)
-                    }
-                    NavigationLink(destination: SSHKeysView(lang: lang)) {
-                        Label(lang.sshKeys, systemImage: "key.fill")
-                    }
-                }
 
-                Section(header: Text(lang.language)) {
-                    Picker(lang.language, selection: $appLanguage) {
-                        ForEach(AppLanguage.allCases) { language in
-                            Text(language.displayName).tag(language.rawValue)
+                    Section(header: Text(lang.language)) {
+                        Picker(lang.language, selection: $appLanguage) {
+                            ForEach(AppLanguage.allCases) { language in
+                                Text(language.displayName).tag(language.rawValue)
+                            }
+                        }
+                    }
+                    
+                    Section(header: Text("Zarządzanie danymi")) {
+                        Button(role: .destructive, action: { showingResetAlert = true }) {
+                            Label("Resetuj aplikację do ustawień fabrycznych", systemImage: "trash")
+                        }
+                    }
+
+                    Section(header: Text(lang.about)) {
+                        HStack {
+                            Text(lang.version)
+                            Spacer()
+                            Text("1.0.0")
+                                .foregroundColor(.secondary)
                         }
                     }
                 }
-                
-                Section(header: Text(lang.about)) {
-                    HStack {
-                        Text(lang.version)
-                        Spacer()
-                        Text("1.0.0")
-                            .foregroundColor(.secondary)
-                    }
+                .navigationTitle(lang.tabSettings)
+            }
+            .disabled(appSession.isResetting)
+
+            if appSession.isResetting {
+                Color.black.opacity(0.5)
+                    .ignoresSafeArea()
+                DataResetProgressView(appSession: appSession)
+                    .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .alert("Zresetować aplikację do ustawień fabrycznych?", isPresented: $showingResetAlert) {
+            Button("Anuluj", role: .cancel) { }
+            Button("Resetuj wszystko", role: .destructive) {
+                Task {
+                    await appSession.performFactoryReset()
+                    biometricLockEnabled = false
                 }
             }
-            .navigationTitle(lang.tabSettings)
+        } message: {
+            Text("Ta operacja usunie wszystkie zapisane serwery, hasła z Keychaina, klucze SSH, grupy i snippety oraz wyłączy blokadę biometryczną. Aplikacja powróci do czystego stanu początkowego.")
         }
     }
 }
