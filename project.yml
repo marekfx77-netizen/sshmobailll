@@ -9,9 +9,6 @@ packages:
   swift-nio:
     url: https://github.com/apple/swift-nio.git
     from: "2.50.0"
-  swift-nio-ssh:
-    url: https://github.com/apple/swift-nio-ssh.git
-    from: "0.3.4"
   SwiftTerm:
     url: https://github.com/migueldeicaza/SwiftTerm.git
     from: "1.0.0"
@@ -44,10 +41,9 @@ targets:
         product: Citadel
       - package: swift-nio
         product: NIOCore
-      - package: swift-nio-ssh
-        product: NIOSSH
       - package: SwiftTerm
         product: SwiftTerm
+
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.marekfx77.sshmobile
@@ -58,6 +54,8 @@ targets:
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
         INFOPLIST_KEY_CFBundleDisplayName: SSH Mobile
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
+        INFOPLIST_KEY_NSFaceIDUsageDescription: SSH Mobile używa Face ID do bezpiecznego odblokowania danych logowania do serwerów SSH.
+        INFOPLIST_KEY_NSLocalNetworkUsageDescription: SSH Mobile łączy się z Twoimi serwerami SSH w sieci lokalnej lub przez internet.
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIRequiresFullScreen: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -65,10 +63,13 @@ targets:
         CODE_SIGNING_ALLOWED: NO
         CODE_SIGNING_REQUIRED: NO
         CODE_SIGN_IDENTITY: ""
+
 schemes:
   SSHMobile:
     build:
       targets:
         SSHMobile: all
+    run:
+      config: Release
     archive:
       config: Release
