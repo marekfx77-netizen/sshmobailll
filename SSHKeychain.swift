@@ -146,4 +146,17 @@ enum SSHKeychain {
         default: return "Biometria"
         }
     }
+
+    static func authenticateWithBiometrics(reason: String) async -> Bool {
+        let ctx = LAContext()
+        var error: NSError?
+        guard ctx.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
+            return false
+        }
+        return await withCheckedContinuation { continuation in
+            ctx.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, _ in
+                continuation.resume(returning: success)
+            }
+        }
+    }
 }
