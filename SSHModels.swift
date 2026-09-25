@@ -213,7 +213,7 @@ enum SSHClientError: LocalizedError {
         case .connectionFailed(let msg): return "Połączenie nie powiodło się: \(msg)"
         case .commandFailed(let msg): return "Komenda zakończyła się błędem: \(msg)"
         case .sftpFailed(let msg): return "Błąd SFTP: \(msg)"
-        case .keyImportFailed: return "Nie udało się zaimportować klucza SSH."
+        case .keyImportFailed: return "Nieprawidłowy format klucza SSH (wymagany klucz prywatny OpenSSH Ed25519)."
         case .notConnected: return "Brak aktywnego połączenia SSH."
         }
     }
