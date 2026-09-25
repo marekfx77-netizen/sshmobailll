@@ -15,7 +15,7 @@ struct SwiftTermView: UIViewRepresentable {
     
     func makeUIView(context: Context) -> TerminalView {
         let tv = TerminalView(frame: .zero)
-        tv.delegate = context.coordinator
+        tv.terminalDelegate = context.coordinator
         context.coordinator.terminalView = tv
         
         // Set font
@@ -78,6 +78,7 @@ struct SwiftTermView: UIViewRepresentable {
         tv.nativeForegroundColor = fg
     }
     
+    @MainActor
     class Coordinator: NSObject, TerminalViewDelegate {
         let pty: SSHTerminalPTY
         weak var terminalView: TerminalView?
@@ -86,23 +87,55 @@ struct SwiftTermView: UIViewRepresentable {
             self.pty = pty
         }
         
-        // User typed something → send to SSH stdin
+        // MARK: - Required TerminalViewDelegate Methods
+        
+        // 1. User typed something -> send to SSH stdin
         func send(source: TerminalView, data: ArraySlice<UInt8>) {
             pty.sendData(Array(data))
         }
         
-        // Terminal resized
+        // 2. Terminal resized
         func sizeChanged(source: TerminalView, newCols: Int, newRows: Int) {
             pty.resizeTerminal(cols: newCols, rows: newRows)
         }
         
-        func setTerminalTitle(source: TerminalView, title: String) {
-            // Could update navigation title
+        // 3. Terminal title changed
+        func setTerminalTitle(source: TerminalView, title: String) {}
+        
+        // 4. Scrolled
+        func scrolled(source: TerminalView, position: Double) {}
+        
+        // 5. Host directory update (OSC 7)
+        func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {}
+        
+        // 6. Hyperlink clicked/tapped (OSC 8)
+        func requestOpenLink(source: TerminalView, link: String, params: [String: String]) {
+            if let url = URL(string: link) {
+                UIApplication.shared.open(url)
+            }
         }
         
-        func scrolled(source: TerminalView, position: Double) {}
-        func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {}
-        func requestOpenLink(source: TerminalView, link: String, params: [String:String]) {}
+        // 7. Bell / beep
+        func bell(source: TerminalView) {
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.warning)
+        }
+        
+        // 8. Clipboard copy (OSC 52)
+        func clipboardCopy(source: TerminalView, content: Data) {
+            UIPasteboard.general.setData(content, forPasteboardType: "public.utf8-plain-text")
+        }
+        
+        // 9. Clipboard read (OSC 52)
+        func clipboardRead(source: TerminalView) -> Data? {
+            UIPasteboard.general.data(forPasteboardType: "public.utf8-plain-text")
+        }
+        
+        // 10. iTerm content (OSC 1337)
+        func iTermContent(source: TerminalView, content: ArraySlice<UInt8>) {}
+        
+        // 11. Range changed
+        func rangeChanged(source: TerminalView, startY: Int, endY: Int) {}
     }
 }
 
