@@ -68,6 +68,29 @@ class SecureStorage(context: Context) {
         }
     }
 
+    fun setPin(pin: String) {
+        val hash = hashPin(pin)
+        prefs.edit().putString("app_pin_hash", hash).putBoolean("pin_enabled", true).apply()
+    }
+
+    fun verifyPin(pin: String): Boolean {
+        val savedHash = prefs.getString("app_pin_hash", null) ?: return false
+        return savedHash == hashPin(pin)
+    }
+
+    fun isPinEnabled(): Boolean {
+        return prefs.getBoolean("pin_enabled", false) && prefs.getString("app_pin_hash", null) != null
+    }
+
+    fun disablePin() {
+        prefs.edit().putBoolean("pin_enabled", false).remove("app_pin_hash").apply()
+    }
+
+    private fun hashPin(pin: String): String {
+        val bytes = java.security.MessageDigest.getInstance("SHA-256").digest(pin.toByteArray(Charsets.UTF_8))
+        return bytes.joinToString("") { "%02x".format(it) }
+    }
+
     fun deleteAll() {
         prefs.edit().clear().apply()
     }

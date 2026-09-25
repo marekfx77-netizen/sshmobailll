@@ -100,15 +100,32 @@ class SSHViewModel(application: Application) : AndroidViewModel(application) {
     private val _privateKeyNames = MutableStateFlow<List<String>>(emptyList())
     val privateKeyNames: StateFlow<List<String>> = _privateKeyNames.asStateFlow()
 
+    private val _isPinEnabled = MutableStateFlow(secureStorage.isPinEnabled())
+    val isPinEnabled: StateFlow<Boolean> = _isPinEnabled.asStateFlow()
+
     init {
         loadData()
-        if (prefs.useBiometrics) {
+        if (prefs.useBiometrics || secureStorage.isPinEnabled()) {
             _isLocked.value = true
         }
     }
 
     fun unlockApp() {
         _isLocked.value = false
+    }
+
+    fun setPin(pin: String) {
+        secureStorage.setPin(pin)
+        _isPinEnabled.value = true
+    }
+
+    fun verifyPin(pin: String): Boolean {
+        return secureStorage.verifyPin(pin)
+    }
+
+    fun disablePin() {
+        secureStorage.disablePin()
+        _isPinEnabled.value = false
     }
 
     private fun loadData() {
@@ -121,6 +138,7 @@ class SSHViewModel(application: Application) : AndroidViewModel(application) {
         _terminalFontSize.value = prefs.terminalFontSize
         _useBiometrics.value = prefs.useBiometrics
         _sshTimeout.value = prefs.sshTimeoutSeconds
+        _isPinEnabled.value = secureStorage.isPinEnabled()
     }
 
     fun selectTab(tabIndex: Int) {
@@ -496,6 +514,7 @@ class SSHViewModel(application: Application) : AndroidViewModel(application) {
             _terminalFontSize.value = 13f
             _useBiometrics.value = false
             _sshTimeout.value = 30
+            _isPinEnabled.value = false
             _isLocked.value = false
             delay(500)
 

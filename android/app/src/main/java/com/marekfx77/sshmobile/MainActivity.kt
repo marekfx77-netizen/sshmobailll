@@ -1,14 +1,21 @@
 package com.marekfx77.sshmobile
 
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Folder
@@ -16,16 +23,17 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -40,7 +48,8 @@ import com.marekfx77.sshmobile.ui.screens.TerminalScreen
 import com.marekfx77.sshmobile.ui.theme.AccentBlue
 import com.marekfx77.sshmobile.ui.theme.BgDark
 import com.marekfx77.sshmobile.ui.theme.SSHMobileTheme
-import com.marekfx77.sshmobile.ui.theme.SurfaceCardDark
+import com.marekfx77.sshmobile.ui.theme.SeparatorDark
+import com.marekfx77.sshmobile.ui.theme.TextSecondaryDark
 import com.marekfx77.sshmobile.viewmodel.SSHViewModel
 
 class MainActivity : FragmentActivity() {
@@ -77,7 +86,7 @@ class MainActivity : FragmentActivity() {
             }
         }
 
-        if (viewModel.isLocked.value) {
+        if (viewModel.isLocked.value && viewModel.useBiometrics.value) {
             triggerBiometrics()
         }
     }
@@ -95,14 +104,13 @@ class MainActivity : FragmentActivity() {
 
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                     super.onAuthenticationError(errorCode, errString)
-                    // If error or user canceled, remain locked
                 }
             }
         )
 
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
             .setTitle("SSH Mobile")
-            .setSubtitle("Zaloguj się za pomocą biometrii")
+            .setSubtitle("Uwierzytelnij się, aby kontynuować")
             .setNegativeButtonText("Anuluj")
             .build()
 
@@ -116,77 +124,12 @@ fun MainScreen(viewModel: SSHViewModel) {
 
     Scaffold(
         bottomBar = {
-            NavigationBar(
-                containerColor = SurfaceCardDark,
-                tonalElevation = 8.dp
-            ) {
-                NavigationBarItem(
-                    selected = currentTab == 0,
-                    onClick = { viewModel.selectTab(0) },
-                    icon = { Icon(imageVector = Icons.Default.Storage, contentDescription = "Serwery") },
-                    label = { Text("Serwery", fontSize = 11.sp) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = AccentBlue,
-                        selectedTextColor = AccentBlue,
-                        unselectedIconColor = Color.Gray,
-                        unselectedTextColor = Color.Gray,
-                        indicatorColor = AccentBlue.copy(alpha = 0.15f)
-                    )
-                )
-                NavigationBarItem(
-                    selected = currentTab == 1,
-                    onClick = { viewModel.selectTab(1) },
-                    icon = { Icon(imageVector = Icons.Default.Terminal, contentDescription = "Terminal") },
-                    label = { Text("Terminal", fontSize = 11.sp) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = AccentBlue,
-                        selectedTextColor = AccentBlue,
-                        unselectedIconColor = Color.Gray,
-                        unselectedTextColor = Color.Gray,
-                        indicatorColor = AccentBlue.copy(alpha = 0.15f)
-                    )
-                )
-                NavigationBarItem(
-                    selected = currentTab == 2,
-                    onClick = { viewModel.selectTab(2) },
-                    icon = { Icon(imageVector = Icons.Default.Folder, contentDescription = "Pliki") },
-                    label = { Text("Pliki", fontSize = 11.sp) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = AccentBlue,
-                        selectedTextColor = AccentBlue,
-                        unselectedIconColor = Color.Gray,
-                        unselectedTextColor = Color.Gray,
-                        indicatorColor = AccentBlue.copy(alpha = 0.15f)
-                    )
-                )
-                NavigationBarItem(
-                    selected = currentTab == 3,
-                    onClick = { viewModel.selectTab(3) },
-                    icon = { Icon(imageVector = Icons.Default.Bolt, contentDescription = "Snippety") },
-                    label = { Text("Snippety", fontSize = 11.sp) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = AccentBlue,
-                        selectedTextColor = AccentBlue,
-                        unselectedIconColor = Color.Gray,
-                        unselectedTextColor = Color.Gray,
-                        indicatorColor = AccentBlue.copy(alpha = 0.15f)
-                    )
-                )
-                NavigationBarItem(
-                    selected = currentTab == 4,
-                    onClick = { viewModel.selectTab(4) },
-                    icon = { Icon(imageVector = Icons.Default.Settings, contentDescription = "Ustawienia") },
-                    label = { Text("Ustawienia", fontSize = 11.sp) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = AccentBlue,
-                        selectedTextColor = AccentBlue,
-                        unselectedIconColor = Color.Gray,
-                        unselectedTextColor = Color.Gray,
-                        indicatorColor = AccentBlue.copy(alpha = 0.15f)
-                    )
-                )
-            }
-        }
+            IosTabBar(
+                currentTab = currentTab,
+                onTabSelected = { viewModel.selectTab(it) }
+            )
+        },
+        containerColor = BgDark
     ) { paddingValues ->
         Box(
             modifier = Modifier
@@ -201,5 +144,102 @@ fun MainScreen(viewModel: SSHViewModel) {
                 4 -> SettingsScreen(viewModel = viewModel)
             }
         }
+    }
+}
+
+@Composable
+fun IosTabBar(
+    currentTab: Int,
+    onTabSelected: (Int) -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFF161618))
+    ) {
+        // Top 0.5dp iOS border
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(0.5.dp)
+                .background(SeparatorDark)
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(58.dp)
+                .padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IosTabItem(
+                title = "Serwery",
+                icon = Icons.Default.Storage,
+                selected = currentTab == 0,
+                onClick = { onTabSelected(0) }
+            )
+            IosTabItem(
+                title = "Terminal",
+                icon = Icons.Default.Terminal,
+                selected = currentTab == 1,
+                onClick = { onTabSelected(1) }
+            )
+            IosTabItem(
+                title = "Pliki",
+                icon = Icons.Default.Folder,
+                selected = currentTab == 2,
+                onClick = { onTabSelected(2) }
+            )
+            IosTabItem(
+                title = "Snippety",
+                icon = Icons.Default.Bolt,
+                selected = currentTab == 3,
+                onClick = { onTabSelected(3) }
+            )
+            IosTabItem(
+                title = "Ustawienia",
+                icon = Icons.Default.Settings,
+                selected = currentTab == 4,
+                onClick = { onTabSelected(4) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun IosTabItem(
+    title: String,
+    icon: ImageVector,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val tint = if (selected) AccentBlue else TextSecondaryDark
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+        modifier = Modifier
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = title,
+            tint = tint,
+            modifier = Modifier.size(24.dp)
+        )
+        Text(
+            text = title,
+            color = tint,
+            fontSize = 10.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            modifier = Modifier.padding(top = 2.dp)
+        )
     }
 }
