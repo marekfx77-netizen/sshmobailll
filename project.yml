@@ -1,3 +1,28 @@
+name: SSHMobile
+options:
+  bundleIdPrefix: com.marekfx77
+  xcodeVersion: "16.0"
+packages:
+  Citadel:
+    url: https://github.com/orlandos-nl/Citadel.git
+    from: "0.8.0"
+  swift-nio:
+    url: https://github.com/apple/swift-nio.git
+    from: "2.50.0"
+  SwiftTerm:
+    url: https://github.com/migueldeicaza/SwiftTerm.git
+    from: "1.0.0"
+settings:
+  base:
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    SWIFT_VERSION: "5.9"
+    CODE_SIGNING_ALLOWED: NO
+    CODE_SIGNING_REQUIRED: NO
+    CODE_SIGN_IDENTITY: ""
+targets:
+  SSHMobile:
+    type: application
+    platform: iOS
     sources:
       - path: .
         excludes:
@@ -11,3 +36,40 @@
           - SSHMobile
           - build
           - Payload
+    dependencies:
+      - package: Citadel
+        product: Citadel
+      - package: swift-nio
+        product: NIOCore
+      - package: SwiftTerm
+        product: SwiftTerm
+
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.marekfx77.sshmobile
+        PRODUCT_NAME: SSHMobile
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        INFOPLIST_KEY_CFBundleDisplayName: SSH Mobile
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
+        INFOPLIST_KEY_NSFaceIDUsageDescription: SSH Mobile używa Face ID do bezpiecznego odblokowania danych logowania do serwerów SSH.
+        INFOPLIST_KEY_NSLocalNetworkUsageDescription: SSH Mobile łączy się z Twoimi serwerami SSH w sieci lokalnej lub przez internet.
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIRequiresFullScreen: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: 1
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGN_IDENTITY: ""
+
+schemes:
+  SSHMobile:
+    build:
+      targets:
+        SSHMobile: all
+    run:
+      config: Release
+    archive:
+      config: Release
