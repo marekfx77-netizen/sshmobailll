@@ -13,6 +13,9 @@ final class SSHAppSession: ObservableObject {
     @Published var errorMessage: String?
     @Published var isGuestMode: Bool = false
     @Published var isWorking: Bool = false
+    @Published var isResetting: Bool = false
+    @Published var resetProgress: Double = 0.0
+    @Published var resetStatusText: String = ""
 
     // MARK: - Persistence keys
     private let serversKey = "ssh_servers"
@@ -187,21 +190,74 @@ final class SSHAppSession: ObservableObject {
     func exitGuestMode() { isGuestMode = false }
 
     func resetToFactorySettings() {
-        for session in activeSessions {
-            session.pty.disconnect()
+        Task {
+            await performFactoryReset()
+        }
+    }
+
+    func performFactoryReset() async {
+        isResetting = true
+        resetProgress = 0.05
+        resetStatusText = "Inicjalizacja procedury czyszczenia..."
+        try? await Task.sleep(nanoseconds: 200_000_000)
+
+        // Krok 1: Rozłączanie aktywnych sesji SSH
+        let count = activeSessions.count
+        if count > 0 {
+            for (idx, session) in activeSessions.enumerated() {
+                resetStatusText = "Zamykanie sesji SSH: \(session.server.name)..."
+                resetProgress = 0.1 + (Double(idx) / Double(count)) * 0.25
+                session.pty.disconnect()
+                try? await Task.sleep(nanoseconds: 150_000_000)
+            }
+        } else {
+            resetProgress = 0.35
+            resetStatusText = "Brak aktywnych połączeń."
+            try? await Task.sleep(nanoseconds: 150_000_000)
         }
         activeSessions.removeAll()
         selectedSessionId = nil
+
+        // Krok 2: Usuwanie poświadczeń z bezpiecznego Keychaina
+        resetStatusText = "Usuwanie haseł i kluczy z pęku kluczy Keychain..."
+        resetProgress = 0.50
+        SSHKeychain.deleteAll()
+        try? await Task.sleep(nanoseconds: 250_000_000)
+
+        // Krok 3: Usuwanie serwerów i grup
+        resetStatusText = "Czyszczenie bazy serwerów i grup..."
+        resetProgress = 0.70
         servers.removeAll()
         groups.removeAll()
+        UserDefaults.standard.removeObject(forKey: serversKey)
+        UserDefaults.standard.removeObject(forKey: groupsKey)
+        try? await Task.sleep(nanoseconds: 200_000_000)
+
+        // Krok 4: Usuwanie snippetów
+        resetStatusText = "Usuwanie zapisanych snippetów..."
+        resetProgress = 0.85
         snippets.removeAll()
+        UserDefaults.standard.removeObject(forKey: snippetsKey)
+        try? await Task.sleep(nanoseconds: 200_000_000)
+
+        // Krok 5: Resetowanie konfiguracji i blokady
+        resetStatusText = "Przywracanie ustawień fabrycznych..."
+        resetProgress = 0.95
         isGuestMode = false
         selectedTab = 0
         errorMessage = nil
-        UserDefaults.standard.removeObject(forKey: serversKey)
-        UserDefaults.standard.removeObject(forKey: groupsKey)
-        UserDefaults.standard.removeObject(forKey: snippetsKey)
-        SSHKeychain.deleteAll()
+        UserDefaults.standard.removeObject(forKey: "biometricLockEnabled")
+        UserDefaults.standard.removeObject(forKey: "appearanceMode")
+        UserDefaults.standard.removeObject(forKey: "terminalFontSize")
+        UserDefaults.standard.removeObject(forKey: "terminalColorScheme")
+        UserDefaults.standard.removeObject(forKey: "appLanguage")
+        try? await Task.sleep(nanoseconds: 250_000_000)
+
+        // Krok 6: Zakończono
+        resetProgress = 1.0
+        resetStatusText = "Czyszczenie zakończone sukcesem!"
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        isResetting = false
     }
 
     // MARK: - Persistence
