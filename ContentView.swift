@@ -1121,10 +1121,9 @@ struct GuestAccessView: View {
 struct MainTabView: View {
     @EnvironmentObject var appSession: SSHAppSession
     let lang: AppLanguage
-    @State private var selectedTab = 0
     
     var body: some View {
-        TabView(selection: $selectedTab) {
+        TabView(selection: $appSession.selectedTab) {
             ServersView(lang: lang)
                 .tabItem {
                     Label(lang.tabServers, systemImage: "server.rack")
@@ -1333,14 +1332,14 @@ struct ServerDetailView: View {
                 .background(Color(UIColor.secondarySystemBackground))
                 .cornerRadius(10)
                 
-                if isConnected {
-                    ResourceStatsCard(lang: lang) // Example placeholder without real data injection
+                if isConnected, let activeSession = appSession.activeSessions.first(where: { $0.server.id == server.id }) {
+                    ResourceStatsCard(lang: lang, stats: activeSession.pty.stats)
                         .padding(.vertical)
                     
                     HStack(spacing: 20) {
                         Button(action: {
-                            appSession.selectedSessionId = appSession.activeSessions.first(where: { $0.server.id == server.id })?.id
-                            // Navigation would be handled via tab change in a full implementation, skipping for brevity
+                            appSession.selectedSessionId = activeSession.id
+                            appSession.selectedTab = 1
                         }) {
                             Label(lang.tabTerminal, systemImage: "terminal")
                                 .frame(maxWidth: .infinity)
@@ -1348,7 +1347,8 @@ struct ServerDetailView: View {
                         .buttonStyle(.borderedProminent)
                         
                         Button(action: {
-                            // Switch to SFTP tab logic
+                            appSession.selectedSessionId = activeSession.id
+                            appSession.selectedTab = 2
                         }) {
                             Label(lang.tabFiles, systemImage: "folder")
                                 .frame(maxWidth: .infinity)
@@ -1427,11 +1427,16 @@ struct ConnectSheetView: View {
                 Section(header: Text(lang.authMethod)) {
                     if server.authMethod == .password {
                         SecureField(lang.password, text: $password)
-                        // In real implementation: Add biometric logic here
                     } else {
-                        Picker(lang.sshKeys, selection: $selectedKey) {
-                            Text("Default Key").tag("default")
-                            // Real impl: Foreach on SSHKeychain.allPrivateKeyNames()
+                        let keys = SSHKeychain.allPrivateKeyNames()
+                        if keys.isEmpty {
+                            Text("Brak kluczy prywatnych (dodaj w Ustawieniach)").foregroundColor(.secondary)
+                        } else {
+                            Picker(lang.sshKeys, selection: $selectedKey) {
+                                ForEach(keys, id: \.self) { key in
+                                    Text(key).tag(key)
+                                }
+                            }
                         }
                     }
                 }
@@ -1453,19 +1458,22 @@ struct ConnectSheetView: View {
             }
             .navigationTitle(lang.connect)
             .navigationBarItems(leading: Button(lang.cancel) { dismiss() })
+            .onAppear {
+                if let saved = SSHKeychain.loadPassword(for: server.id) {
+                    password = saved
+                }
+                selectedKey = SSHKeychain.allPrivateKeyNames().first ?? ""
+            }
         }
     }
     
     func connect() {
-        isConnecting = true
-        Task {
-            // Simulate connection delay
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
-            DispatchQueue.main.async {
-                appSession.openSession(for: server)
-                dismiss()
-            }
+        if server.authMethod == .password && !password.isEmpty {
+            SSHKeychain.savePassword(password, for: server.id)
         }
+        appSession.openSession(for: server)
+        dismiss()
+        appSession.selectedTab = 1
     }
 }
 
@@ -1701,9 +1709,9 @@ struct TerminalTabsView: View {
     @ViewBuilder
     private var terminalArea: some View {
         if let session = appSession.activeSessions.first(where: { $0.id == appSession.selectedSessionId }) {
-            TerminalSessionView(lang: lang, server: session.server)
+            TerminalSessionView(lang: lang, session: session)
         } else if let first = appSession.activeSessions.first {
-            TerminalSessionView(lang: lang, server: first.server)
+            TerminalSessionView(lang: lang, session: first)
         } else {
             Spacer()
         }
@@ -1713,15 +1721,12 @@ struct TerminalTabsView: View {
 // MARK: - Section 12: TerminalSessionView
 struct TerminalSessionView: View {
     let lang: AppLanguage
-    let server: SSHServer
-    @StateObject private var pty: SSHTerminalPTY
+    @ObservedObject var session: SSHActiveSession
     @AppStorage("terminalFontSize") private var fontSize = 13.0
     @AppStorage("terminalColorScheme") private var terminalColorScheme = "dracula"
     
-    init(lang: AppLanguage, server: SSHServer) {
-        self.lang = lang
-        self.server = server
-        self._pty = StateObject(wrappedValue: SSHTerminalPTY(server: server))
+    private var pty: SSHTerminalPTY {
+        session.pty
     }
     
     private var currentScheme: TerminalColorScheme {
@@ -1783,12 +1788,12 @@ struct TerminalSessionView: View {
     }
     
     private func startConnection() {
-        if server.authMethod == .privateKey {
+        if session.server.authMethod == .privateKey {
             let key = SSHKeychain.allPrivateKeyNames().first ?? "default"
             Task {
                 await pty.connectWithKey(keyName: key)
             }
-        } else if let pwd = SSHKeychain.loadPassword(for: server.id) {
+        } else if let pwd = SSHKeychain.loadPassword(for: session.server.id) {
             Task {
                 await pty.connect(password: pwd)
             }
@@ -1822,7 +1827,7 @@ struct SFTPView: View {
 
     var body: some View {
         NavigationStack {
-            if let session = appSession.activeSessions.first {
+            if let session = appSession.activeSessions.first(where: { $0.id == appSession.selectedSessionId }) ?? appSession.activeSessions.first {
                 SFTPBrowserView(lang: lang, server: session.server)
             } else {
                 VStack(spacing: 16) {
@@ -2120,26 +2125,42 @@ struct SnippetsView: View {
 
 // MARK: - Section 19: SnippetRow
 struct SnippetRow: View {
+    @EnvironmentObject var appSession: SSHAppSession
     let snippet: SSHSnippet
     let lang: AppLanguage
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Image(systemName: "bolt.fill")
-                    .foregroundColor(.yellow)
-                Text(snippet.name)
-                    .font(.headline)
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Image(systemName: "bolt.fill")
+                        .foregroundColor(.yellow)
+                    Text(snippet.name)
+                        .font(.headline)
+                }
+                Text(snippet.command)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                if !snippet.description.isEmpty {
+                    Text(snippet.description)
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
             }
-            Text(snippet.command)
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .lineLimit(1)
-            if !snippet.description.isEmpty {
-                Text(snippet.description)
-                    .font(.caption2)
-                    .foregroundColor(.gray)
+            Spacer()
+            Button(action: {
+                if let activeSession = appSession.activeSessions.first(where: { $0.id == appSession.selectedSessionId }) ?? appSession.activeSessions.first {
+                    activeSession.pty.sendString(snippet.command + "\n")
+                    appSession.selectedTab = 1
+                }
+            }) {
+                Image(systemName: "play.circle.fill")
+                    .font(.title2)
+                    .foregroundColor(appSession.activeSessions.isEmpty ? .gray : .green)
             }
+            .buttonStyle(.plain)
+            .disabled(appSession.activeSessions.isEmpty)
         }
         .padding(.vertical, 4)
     }
