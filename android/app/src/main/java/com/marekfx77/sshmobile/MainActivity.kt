@@ -55,6 +55,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        handleIntent(intent)
 
         setContent {
             val themeMode by viewModel.appearanceTheme.collectAsState()
@@ -81,6 +82,18 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent?) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: android.content.Intent?) {
+        val tab = intent?.getIntExtra("tab", -1) ?: -1
+        if (tab in 0..4) {
+            viewModel.selectTab(tab)
         }
     }
 }
