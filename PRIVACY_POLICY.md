@@ -2,7 +2,7 @@
 
 **Last updated:** September 26, 2026
 
-**SSH Mobile** ("the Application") is developed and maintained by **marekfx77** ("we", "our", or "us"). We are committed to protecting your privacy and ensuring the security of your data. This Privacy Policy explains our practices regarding user information.
+**SSH Mobile** ("the Application") is developed and maintained by **MerMiko** ("we", "our", or "us"). We are committed to protecting your privacy and ensuring the security of your data. This Privacy Policy explains our practices regarding user information.
 
 ---
 
@@ -35,4 +35,4 @@ We may update our Privacy Policy from time to time. Any changes will be posted o
 
 ### 8. Contact Us
 If you have any questions or suggestions about this Privacy Policy, do not hesitate to contact us at:  
-**Email:** support.sshmobile@proton.me
+**Email:** mermiko.contact@gmail.com
