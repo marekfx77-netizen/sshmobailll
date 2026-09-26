@@ -8,7 +8,7 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.marekfx77.sshmobile"
+        applicationId = "com.mermiko.sshmobile"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
